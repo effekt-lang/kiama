@@ -38,6 +38,14 @@ case class Position(line: Int, column: Int, source: Source) {
     source.optLineContents(line).map(s => s"$s\n${" " * (column - 1)}^")
 
   /**
+   * Return the word at the given position. A word is any string surrounded by
+   * whitespaces. TODO: Make this more general
+   * If the source provides no access to its lines, return `None`.
+   */
+  lazy val optWord: Option[String] =
+    source.optLineContents(line).map(s => s.split(" ").last)
+
+  /**
    * Return the offset that this position refers to in its source. `None`
    * is returned if the position is not valid for its source.
    */
