@@ -419,13 +419,6 @@ trait LanguageService[N] {
     None
 
   /**
-   * Provide additional information for a completion item, for example
-   * more elaborate descriptions or signatures.
-   */
-  def resolveCompletion(item: CompletionItem): Option[CompletionItem] =
-    None
-
-  /**
    * The parameters are passed as an array, potentially containing gson.Json objects or primitives.
    * The first argument is required to be { uri: String } and used to obtain the source.
    */
@@ -460,9 +453,6 @@ class Services[N, C <: Config, M <: Message](
   @JsonRequest("initialize")
   def initialize(params: InitializeParams): CompletableFuture[InitializeResult] =
     CompletableFuture.completedFuture {
-      val completionOptions = new CompletionOptions
-      completionOptions.setResolveProvider(true)
-
       server.setSettings(params.getInitializationOptions)
       val serverCapabilities = new ServerCapabilities
       serverCapabilities.setCodeActionProvider(true)
@@ -471,7 +461,7 @@ class Services[N, C <: Config, M <: Message](
       serverCapabilities.setDocumentSymbolProvider(true)
       serverCapabilities.setHoverProvider(true)
       serverCapabilities.setReferencesProvider(true)
-      serverCapabilities.setCompletionProvider(completionOptions)
+      serverCapabilities.setCompletionProvider(new CompletionOptions)
       serverCapabilities.setTextDocumentSync(TextDocumentSyncKind.Full)
       new InitializeResult(serverCapabilities)
     }
@@ -637,12 +627,6 @@ class Services[N, C <: Config, M <: Message](
             completion <- server.getCompletion(position)
           ) yield completion.toArray
         ).getOrElse(null)
-    )
-
-  @JsonNotification("completionItem/resolve") 
-  def completionResolve(params: CompletionItem): CompletableFuture[CompletionItem] =
-    CompletableFutures.computeAsync(
-      (_: CancelChecker) => server.resolveCompletion(params).getOrElse(params)
     )
 
   @JsonNotification("workspace/executeCommand")
