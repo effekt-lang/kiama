@@ -412,6 +412,13 @@ trait LanguageService[N] {
     None
 
   /**
+   * Return the corresponding completion items of the symbol at the
+   * given position (if any).
+   */
+  def getCompletion(position: Position): Option[Vector[CompletionItem]] =
+    None
+
+  /**
    * The parameters are passed as an array, potentially containing gson.Json objects or primitives.
    * The first argument is required to be { uri: String } and used to obtain the source.
    */
@@ -454,6 +461,7 @@ class Services[N, C <: Config, M <: Message](
       serverCapabilities.setDocumentSymbolProvider(true)
       serverCapabilities.setHoverProvider(true)
       serverCapabilities.setReferencesProvider(true)
+      serverCapabilities.setCompletionProvider(new CompletionOptions)
       serverCapabilities.setTextDocumentSync(TextDocumentSyncKind.Full)
       new InitializeResult(serverCapabilities)
     }
@@ -606,6 +614,18 @@ class Services[N, C <: Config, M <: Message](
             references <- server.getReferences(position, params.getContext.isIncludeDeclaration);
             locations = references.map(server.locationOfNode(_))
           ) yield locations.toArray
+        ).getOrElse(null)
+    )
+  
+  @JsonNotification("textDocument/completion")
+  def completion(params: CompletionParams): CompletableFuture[Array[CompletionItem]] =
+    CompletableFutures.computeAsync(
+      (_: CancelChecker) =>
+        (
+          for (
+            position <- positionOfNotification(params.getTextDocument, params.getPosition);
+            completion <- server.getCompletion(position)
+          ) yield completion.toArray
         ).getOrElse(null)
     )
 
