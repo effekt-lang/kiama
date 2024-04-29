@@ -41,7 +41,7 @@ import kiama.util.Positions
  * ACM SIGPLAN Symposium on Partial Evaluation and Semantics-based Program
  * Manipulation, 2008.
  */
-class ParsersBase(positions: Positions) {
+trait ParsersBase(positions: Positions) {
 
   import kiama.util.{ Source, StringSource }
   import scala.annotation.tailrec
@@ -51,6 +51,110 @@ class ParsersBase(positions: Positions) {
   import scala.util.DynamicVariable
   import scala.util.matching.Regex
   import scala.util.matching.Regex.Match
+
+  type Token
+  type In = Input[Token]
+
+  /**
+   * Parse results.
+   */
+  sealed abstract class ParseResult[+T] {
+
+    def kind: String
+
+    def toMessage: String
+
+    def next: In
+
+    def append[U >: T](r: => ParseResult[U]): ParseResult[U]
+
+    def flatMapWithNext[U](f: T => In => ParseResult[U]): ParseResult[U]
+
+    def map[U](f: T => U): ParseResult[U]
+
+  }
+
+  /**
+   * A successful parse result.
+   */
+  case class Success[+T](result: T, next: In) extends ParseResult[T] {
+
+    val kind = "success"
+
+    def append[U >: T](r: => ParseResult[U]): ParseResult[U] =
+      this
+
+    def flatMapWithNext[U](f: T => In => ParseResult[U]): ParseResult[U] =
+      f(result)(next)
+
+    def map[U](f: T => U): ParseResult[U] = {
+      val u = f(result)
+      Success(u, next)
+    }
+
+  }
+
+  /**
+   * All parse results that are not successful.
+   */
+  sealed abstract class NoSuccess(val message: String, val next: In) extends ParseResult[Nothing] {
+
+    def flatMapWithNext[U](f: Nothing => In => ParseResult[U]): ParseResult[U] =
+      this
+
+    def map[U](f: Nothing => U): ParseResult[U] =
+      this
+
+  }
+
+  /**
+   * Support for NoSuccess.
+   */
+  object NoSuccess {
+
+    def unapply[T](r: ParseResult[T]): Option[(String, In)] =
+      r match {
+        case Error(m, n) => Some((m, n))
+        case Failure(m, n) => Some((m, n))
+        case _ => None
+      }
+
+  }
+
+  /**
+   * An error parse result. Parsers that error do not backtrack.
+   */
+  case class Error(override val message: String, override val next: In) extends NoSuccess(message, next) {
+
+    val kind = "error"
+
+    def append[U >: Nothing](r: => ParseResult[U]): ParseResult[U] =
+      this
+
+  }
+
+  /**
+   * A failure parse result.
+   */
+  case class Failure(override val message: String, override val next: In) extends NoSuccess(message, next) {
+
+    val kind = "failure"
+
+    def append[U >: Nothing](r: => ParseResult[U]): ParseResult[U] = {
+      val rr = r
+      rr match {
+        case _: NoSuccess =>
+          if (rr.next.offset < next.offset)
+            this
+          else
+            rr
+        case _ =>
+          rr
+      }
+    }
+
+  }
+
 
   /**
    * Record lack of success so that we can nicely handle the case where a phrase
@@ -65,15 +169,15 @@ class ParsersBase(positions: Positions) {
    * recording. All parsers should be created using this method so that they
    * share the book-keeping.
    */
-  def Parser[T](f: Input => ParseResult[T]): Parser[T] =
+  def Parser[T](f: In => ParseResult[T]): Parser[T] =
     new Parser[T] {
-      def apply(in: Input): ParseResult[T] =
+      def apply(in: In): ParseResult[T] =
         parseWhitespace(in) match {
           case Success(_, start) =>
             f(start) match {
               case res @ Success(t, finish) =>
-                positions.setStart(t, start.position)
-                positions.setFinish(t, finish.position)
+                //positions.setStart(t, start.position)
+                //positions.setFinish(t, finish.position)
                 res
               // Can't merge these into a NoSuccess case since type is ParseResult[T]
               case res @ Error(message, next) =>
@@ -103,7 +207,7 @@ class ParsersBase(positions: Positions) {
   /**
    * Map between left input positions and active left recursion instances.
    */
-  var heads = new HashMap[Input, Head]
+  var heads = new HashMap[In, Head]
 
   /**
    * Parsing answers.
@@ -143,12 +247,12 @@ class ParsersBase(positions: Positions) {
     /**
      * Memo table entries.
      */
-    case class MemoEntry(var ans: Answer[T], var in: Input)
+    case class MemoEntry(var ans: Answer[T], var in: In)
 
     /**
      * The section of the memo table relating to this rule.
      */
-    val memo = new HashMap[Input, MemoEntry]
+    val memo = new HashMap[In, MemoEntry]
 
     /**
      * Left recursion stack.
@@ -158,7 +262,7 @@ class ParsersBase(positions: Positions) {
     /**
      * Apply this rule to the given input, memoising the result.
      */
-    def apply(in: Input): ParseResult[T] = {
+    def apply(in: In): ParseResult[T] = {
       recall(in) match {
         case None =>
           val lr = LR[T](Failure("", in), this, null, LRStack)
@@ -201,7 +305,7 @@ class ParsersBase(positions: Positions) {
     /**
      * Process a given left recursion instance.
      */
-    def lranswer(in: Input, m: MemoEntry): ParseResult[T] = {
+    def lranswer(in: In, m: MemoEntry): ParseResult[T] = {
       m.ans match {
         case lr @ LR(_, _, _, _) =>
           val h = lr.head
@@ -224,7 +328,7 @@ class ParsersBase(positions: Positions) {
      * Look up the memoised result for this rule, taking into account that
      * it might be participating in an active left recursion.
      */
-    def recall(in: Input): Option[MemoEntry] = {
+    def recall(in: In): Option[MemoEntry] = {
       val om = memo.get(in)
       heads.get(in) match {
         case None => om
@@ -244,7 +348,7 @@ class ParsersBase(positions: Positions) {
     /**
      * Grow the current parse result according to a left recursion.
      */
-    def growlr(in: Input, m: MemoEntry, h: Head): ParseResult[T] = {
+    def growlr(in: In, m: MemoEntry, h: Head): ParseResult[T] = {
       heads += (in -> h)
       while (true) {
         h.evalSet = h.involvedSet.toSet
@@ -287,16 +391,16 @@ class ParsersBase(positions: Positions) {
    * memoise its results so it may repeat work. If those properties are
    * desired use the `PackratParser` type instead.
    */
-  abstract class Parser[+T] extends (Input => ParseResult[T]) {
+  abstract class Parser[+T] extends (In => ParseResult[T]) {
 
     p =>
-
+/*
     /**
      * Alternative entry point to directly parse a string.
      */
     def apply(str: String): ParseResult[T] =
       apply(Input(StringSource(str), 0))
-
+*/
     // Functional operators
 
     def append[U >: T](q: => Parser[U]): Parser[U] =
@@ -399,28 +503,14 @@ class ParsersBase(positions: Positions) {
       flatMap(fq)
 
   }
-
-  // Running parsers
-
-  /**
-   * Run a parser on a string to obtain its result.
-   */
-  def parse[T](p: Parser[T], source: Source): ParseResult[T] =
-    p(Input(source, 0))
-
-  /**
-   * Run a parser on all of a string to obtain its result.
-   */
-  def parseAll[T](p: Parser[T], source: Source): ParseResult[T] =
-    parse(phrase(p), source)
-
+  
   // Constructors
 
   /**
    * A parser that matches any character, failing if the end of input
    * is reached.
    */
-  def any: Parser[Char] =
+  def any: Parser[Token] =
     Parser {
       in =>
         if (in.atEnd)
@@ -432,14 +522,14 @@ class ParsersBase(positions: Positions) {
   /**
    * A parser that accepts just the given character.
    */
-  def elem(ch: Char): Parser[Char] =
+  def elem(ch: Token): Parser[Token] =
     elem(ch.toString, _ == ch)
 
   /**
    * A parser that accepts just those characters that pass the given predicate.
    * The message is used to describe what was expected if an error occurs.
    */
-  def elem(message: String, p: Char => Boolean): Parser[Char] =
+  def elem(message: String, p: Token => Boolean): Parser[Token] =
     Parser {
       in =>
         in.first match {
@@ -494,11 +584,11 @@ class ParsersBase(positions: Positions) {
       in =>
         val buf = ops.newBuilder[T]
 
-        def rest(last: T, in: Input): ParseResult[CC[T]] = {
+        def rest(last: T, in: In): ParseResult[CC[T]] = {
           val ppp = pp
 
           @tailrec
-          def loop(last: T, in: Input): ParseResult[CC[T]] =
+          def loop(last: T, in: In): ParseResult[CC[T]] =
             ppp(in) match {
               case Success(t, next) =>
                 buf += t
@@ -626,19 +716,31 @@ class ParsersBase(positions: Positions) {
   def phrase[T](p: => Parser[T]): Parser[T] =
     Parser {
       in =>
-        latestNoSuccess.withValue(None) {
-          (p <~ "")(in) match {
-            case s @ Success(t, next) =>
-              if (next.atEnd)
-                s
-              else
-                latestNoSuccess.value.filterNot {
-                  _.next.offset < next.offset
-                }.getOrElse(Failure("end of input expected", next))
-            case result: NoSuccess =>
-              latestNoSuccess.value.getOrElse(result)
+        p(in) match {
+          case res@Success(result, next) => {
+            if (next.atEnd) res
+            else {
+              Failure("end of input expected", next)
+            }
           }
+          case _: NoSuccess =>
+            Failure("end of input expected", in.rest)
         }
+      /*
+      latestNoSuccess.withValue(None) {
+        (p <~ "")(in) match {
+          case s @ Success(t, next) =>
+            if (next.atEnd)
+              s
+            else
+              latestNoSuccess.value.filterNot {
+                _.next.offset < next.offset
+              }.getOrElse(Failure("end of input expected", next))
+          case result: NoSuccess =>
+            latestNoSuccess.value.getOrElse(result)
+        }
+      }
+      */
     }
 
   /**
@@ -658,8 +760,7 @@ class ParsersBase(positions: Positions) {
    * whitespace characters). This definition can be overridden as long
    * as the new definition succeeds at the end of the input.
    */
-  def whitespace: Parser[Any] =
-    regex("""\s*""".r)
+  def whitespace: Parser[Any]
 
   /**
    * Are we currently parsing whitespace?
@@ -673,7 +774,7 @@ class ParsersBase(positions: Positions) {
    * unless they occur at the end of the input. In other words, an
    * error not at the end is treated as the absence of whitespace.
    */
-  def parseWhitespace(in: Input): ParseResult[Any] =
+  def parseWhitespace(in: In): ParseResult[Any] =
     if (parsingWhitespace) {
       Success("", in)
     } else {
@@ -690,55 +791,6 @@ class ParsersBase(positions: Positions) {
         }
       parsingWhitespace = false
       result
-    }
-
-  /**
-   * A parser that matches a literal string after skipping any whitespace.
-   * The form of the latter is defined by the `whitespace` parser.
-   */
-  implicit def literal(s: String): Parser[String] =
-    Parser {
-      in =>
-        if (in.source.content.regionMatches(in.offset, s, 0, s.length)) {
-          Success(s, Input(in.source, in.offset + s.length))
-        } else {
-          Failure(s"'$s' expected but ${in.found} found", in)
-        }
-    }
-
-  /**
-   * A parser that matches a regex string after skipping any whitespace.
-   * The form of the latter is defined by the `whitespace` parser.
-   */
-  def regex(r: Regex, expected: => String): Parser[String] =
-    Parser {
-      in =>
-        val s = in.source.content.substring(in.offset)
-        r.findPrefixMatchOf(s) match {
-          case Some(m) =>
-            Success(s.substring(0, m.end), Input(in.source, in.offset + m.end))
-          case None =>
-            Failure(s"${expected} expected but ${in.found} found", in)
-        }
-    }
-
-  implicit def regex(r: Regex): Parser[String] =
-    regex(r, s"string matching regex '$r'")
-
-  /**
-   * A parser that matches a regex string after skipping any whitespace.
-   * The form of the latter is defined by the `whitespace` parser.
-   */
-  def matchRegex(r: Regex): Parser[Match] =
-    Parser {
-      in =>
-        val s = in.source.content.substring(in.offset)
-        r.findPrefixMatchOf(s) match {
-          case Some(m) =>
-            Success(m, Input(in.source, in.offset + m.end))
-          case None =>
-            Failure(s"string matching regex '$r' expected but ${ in.found } found", in)
-        }
     }
 
   /**
@@ -822,27 +874,6 @@ class ParsersBase(positions: Positions) {
   }
 
   // Utilities
-
-  /**
-   * Parse digit strings that are constrained to fit into an `Int` value.
-   * If the digit string is too big, a parse error results.
-   */
-  lazy val constrainedInt: Parser[Int] =
-    wrap(regex("[0-9]+".r), stringToInt)
-
-  /**
-   * Parser for keywords. The list of string arguments gives the text
-   * of the keywords in a language. The regular expression gives the
-   * possible extension of the keyword to stop the keyword being seen as
-   * an identifier instead. For example, the keyword list might contain
-   * `"begin"` and `"end"` and the extension regular expression might
-   * be `[^a-zA-Z0-9]`. Thus, `begin` followed by something other than
-   * a letter or digit is a keyword, but `beginfoo8` is an identifier.
-   * This parser succeeds if any of the keywords is present, provided
-   * that it's not immediately followed by something that extends it.
-   */
-  def keywords(ext: Regex, kws: List[String]): Parser[String] =
-    regex("(%s)(%s|\\z)".format(kws.mkString("|"), ext).r, "Keyword")
 
   /**
    * Convert the digit string `s` to an `Int` if it's in range, but return an
