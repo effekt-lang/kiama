@@ -7,9 +7,8 @@ import kiama.util.Source
 import scala.util.matching.Regex
 import scala.util.matching.Regex.Match
 
-class CharParsers(positions: Positions) extends Parsers(positions) {
+abstract class CharParsers(positions: Positions) extends Parsers(positions) {
   type Token = Char
-  type In = SourceInput
   
   /**
    * Run a parser on a string to obtain its result.
@@ -39,7 +38,7 @@ class CharParsers(positions: Positions) extends Parsers(positions) {
     }
 }
 
-class RegexParsers(positions: Positions) extends CharParsers(positions) {
+abstract class RegexParsers(positions: Positions) extends CharParsers(positions) {
 
   /**
    * A parser that matches a regex string after skipping any whitespace.

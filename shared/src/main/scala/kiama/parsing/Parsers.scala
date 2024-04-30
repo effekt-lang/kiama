@@ -62,8 +62,6 @@ trait ParsersBase(positions: Positions) {
 
     def kind: String
 
-    def toMessage: String
-
     def next: In
 
     def append[U >: T](r: => ParseResult[U]): ParseResult[U]
@@ -71,7 +69,6 @@ trait ParsersBase(positions: Positions) {
     def flatMapWithNext[U](f: T => In => ParseResult[U]): ParseResult[U]
 
     def map[U](f: T => U): ParseResult[U]
-
   }
 
   /**
@@ -91,7 +88,6 @@ trait ParsersBase(positions: Positions) {
       val u = f(result)
       Success(u, next)
     }
-
   }
 
   /**
@@ -104,7 +100,6 @@ trait ParsersBase(positions: Positions) {
 
     def map[U](f: Nothing => U): ParseResult[U] =
       this
-
   }
 
   /**
@@ -118,7 +113,6 @@ trait ParsersBase(positions: Positions) {
         case Failure(m, n) => Some((m, n))
         case _ => None
       }
-
   }
 
   /**
@@ -130,7 +124,6 @@ trait ParsersBase(positions: Positions) {
 
     def append[U >: Nothing](r: => ParseResult[U]): ParseResult[U] =
       this
-
   }
 
   /**
@@ -152,7 +145,6 @@ trait ParsersBase(positions: Positions) {
           rr
       }
     }
-
   }
 
 
@@ -503,6 +495,21 @@ trait ParsersBase(positions: Positions) {
       flatMap(fq)
 
   }
+  
+  // Running parsers
+
+  /**
+   * Run a parser on a string to obtain its result.
+   */
+  def parse[T](p: Parser[T], input: In): ParseResult[T] =
+    p(input)
+
+  /**
+   * Run a parser on all of a string to obtain its result.
+   */
+  def parseAll[T](p: Parser[T], input: In): ParseResult[T] =
+    parse(phrase(p), input)
+  
   
   // Constructors
 
@@ -1027,11 +1034,11 @@ trait ListRepetitionParsers {
 /**
  * Parser combinators that use vectors to represent repetitive constructs.
  */
-class Parsers(positions: Positions) extends ParsersBase(positions)
+abstract class Parsers(positions: Positions) extends ParsersBase(positions)
   with VectorRepetitionParsers
 
 /**
  * Parser combinators that use lists to represent repetitive constructs.
  */
-class ListParsers(positions: Positions) extends ParsersBase(positions)
+abstract class ListParsers(positions: Positions) extends ParsersBase(positions)
   with ListRepetitionParsers

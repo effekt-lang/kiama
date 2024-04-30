@@ -13,17 +13,17 @@ package parsing
 
 import kiama.util.{Position, Source}
 
-enum Token {
-  case Space
-  case Keyword(s: String)
-}
-
 /**
  * The input consumed by a parser.
  */
 trait Input[+Token] {
 
   import kiama.util.Position
+  
+  def source: Source =
+    throw new NoSuchMethodException("not a char based parser")
+
+  def offset: Int
 
   /**
    * Are we at the end of the input?
@@ -39,11 +39,20 @@ trait Input[+Token] {
    * The rest of the input, unchanged if already at end.
    */
   def rest: Input[Token]
-  
-  def offset: Int
+
+  /**
+   * Return a description of the current character found in the input,
+   * either the actual character is there is one, or "end of source" if
+   * we are at the end.
+   */
+  def found: String =
+    if (atEnd || first.isEmpty)
+      "end of source"
+    else
+      s"'${first.get}'"
 }
 
-case class SourceInput(source: Source, offset: Int) extends Input[Char] {
+case class SourceInput(override val source: Source, offset: Int) extends Input[Char] {
 
   def atEnd: Boolean =
     source.content.length <= offset
@@ -69,17 +78,6 @@ case class SourceInput(source: Source, offset: Int) extends Input[Char] {
    */
   def format: String =
     s"${found} (${position.line},${position.column})"
-
-  /**
-   * Return a description of the current character found in the input,
-   * either the actual character is there is one, or "end of source" if
-   * we are at the end.
-   */
-  def found: String =
-    if (offset == source.content.length)
-      "end of source"
-    else
-      s"'${source.content.charAt(offset)}'"
 }
 
 case class TokenInput[Token](tokens: Seq[Token], offset: Int) extends Input[Token] {
