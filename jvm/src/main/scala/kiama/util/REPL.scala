@@ -11,10 +11,12 @@
 package kiama
 package util
 
+import kiama.parsing.Input
+
 /**
  * General support for applications that implement read-eval-print loops (REPLs).
  */
-trait REPL[T, C <: REPLConfig, M <: Message] {
+trait REPL[In <: Input[_], Out, C <: REPLConfig, M <: Message] {
 
   import scala.annotation.tailrec
   import kiama.parsing.{ NoSuccess, ParseResult, Success }
@@ -28,7 +30,7 @@ trait REPL[T, C <: REPLConfig, M <: Message] {
   /**
    * Parse a source, returning a parse result.
    */
-  def parse(source: Source): ParseResult[T]
+  def parse(source: Source): ParseResult[In, Out]
 
   /**
    * The position store used by this REPL.
@@ -55,7 +57,7 @@ trait REPL[T, C <: REPLConfig, M <: Message] {
   /**
    * Process a user input value in the given configuration.
    */
-  def process(source: Source, t: T, config: C): Unit
+  def process(source: Source, t: Out, config: C): Unit
 
   /**
    * Create and initialise the configuration for a particular run of the REPL.
@@ -173,7 +175,7 @@ trait REPL[T, C <: REPLConfig, M <: Message] {
       parse(source) match {
         case Success(e, _) =>
           process(source, e, config)
-        case res: NoSuccess =>
+        case res: NoSuccess[_] =>
           val pos = res.next.position
           val messages = Vector(messaging.message(Range(pos, pos), res.message))
           report(source, messages, config)

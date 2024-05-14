@@ -54,106 +54,14 @@ trait ParsersBase(positions: Positions) {
 
   type Token
   type In = Input[Token]
-
-  /**
-   * Parse results.
-   */
-  sealed abstract class ParseResult[+T] {
-
-    def kind: String
-
-    def next: In
-
-    def append[U >: T](r: => ParseResult[U]): ParseResult[U]
-
-    def flatMapWithNext[U](f: T => In => ParseResult[U]): ParseResult[U]
-
-    def map[U](f: T => U): ParseResult[U]
-  }
-
-  /**
-   * A successful parse result.
-   */
-  case class Success[+T](result: T, next: In) extends ParseResult[T] {
-
-    val kind = "success"
-
-    def append[U >: T](r: => ParseResult[U]): ParseResult[U] =
-      this
-
-    def flatMapWithNext[U](f: T => In => ParseResult[U]): ParseResult[U] =
-      f(result)(next)
-
-    def map[U](f: T => U): ParseResult[U] = {
-      val u = f(result)
-      Success(u, next)
-    }
-  }
-
-  /**
-   * All parse results that are not successful.
-   */
-  sealed abstract class NoSuccess(val message: String, val next: In) extends ParseResult[Nothing] {
-
-    def flatMapWithNext[U](f: Nothing => In => ParseResult[U]): ParseResult[U] =
-      this
-
-    def map[U](f: Nothing => U): ParseResult[U] =
-      this
-  }
-
-  /**
-   * Support for NoSuccess.
-   */
-  object NoSuccess {
-
-    def unapply[T](r: ParseResult[T]): Option[(String, In)] =
-      r match {
-        case Error(m, n) => Some((m, n))
-        case Failure(m, n) => Some((m, n))
-        case _ => None
-      }
-  }
-
-  /**
-   * An error parse result. Parsers that error do not backtrack.
-   */
-  case class Error(override val message: String, override val next: In) extends NoSuccess(message, next) {
-
-    val kind = "error"
-
-    def append[U >: Nothing](r: => ParseResult[U]): ParseResult[U] =
-      this
-  }
-
-  /**
-   * A failure parse result.
-   */
-  case class Failure(override val message: String, override val next: In) extends NoSuccess(message, next) {
-
-    val kind = "failure"
-
-    def append[U >: Nothing](r: => ParseResult[U]): ParseResult[U] = {
-      val rr = r
-      rr match {
-        case _: NoSuccess =>
-          if (rr.next.offset < next.offset)
-            this
-          else
-            rr
-        case _ =>
-          rr
-      }
-    }
-  }
-
+  type Result[+Out] = ParseResult[In, Out]
 
   /**
    * Record lack of success so that we can nicely handle the case where a phrase
    * doesn't parse when looking for the end of input but there was a later lack
    * of success for some other reason.
    */
-  lazy val latestNoSuccess = new DynamicVariable[Option[NoSuccess]](None)
+  lazy val latestNoSuccess = new DynamicVariable[Option[NoSuccess[In]]](None)
 
   /**
    * Convenience method for making a parser out of its body function,
@@ -161,9 +69,9 @@ trait ParsersBase(positions: Positions) {
    * recording. All parsers should be created using this method so that they
    * share the book-keeping.
    */
-  def Parser[T](f: In => ParseResult[T]): Parser[T] =
+  def Parser[T](f: In => Result[T]): Parser[T] =
     new Parser[T] {
-      def apply(in: In): ParseResult[T] =
+      def apply(in: In): Result[T] =
         parseWhitespace(in) match {
           case Success(_, start) =>
             f(start) match {
@@ -171,18 +79,18 @@ trait ParsersBase(positions: Positions) {
                 //positions.setStart(t, start.position)
                 //positions.setFinish(t, finish.position)
                 res
-              // Can't merge these into a NoSuccess case since type is ParseResult[T]
+              // Can't merge these into a NoSuccess case since type is Result[T]
               case res @ Error(message, next) =>
                 updateLatestNoSuccess(res)
               case res @ Failure(message, next) =>
                 updateLatestNoSuccess(res)
             }
-          case result: NoSuccess =>
+          case result: NoSuccess[In] =>
             result
         }
     }
 
-  def updateLatestNoSuccess[T](res: NoSuccess): ParseResult[T] = {
+  def updateLatestNoSuccess[T](res: NoSuccess[In]): Result[T] = {
     if ((res.message != "") &&
       (latestNoSuccess.value.forall(_.next.offset <= res.next.offset)))
       latestNoSuccess.value = Some(res)
@@ -209,12 +117,12 @@ trait ParsersBase(positions: Positions) {
   /**
    * An answer that is a resolved parser result.
    */
-  case class Resolution[T](result: ParseResult[T]) extends Answer[T]
+  case class Resolution[T](result: Result[T]) extends Answer[T]
 
   /**
    * An answer that is a left recursion record.
    */
-  case class LR[T](var seed: ParseResult[T], rule: Rule, var head: Head, next: LR[T]) extends Answer[T]
+  case class LR[T](var seed: Result[T], rule: Rule, var head: Head, next: LR[T]) extends Answer[T]
 
   /**
    * Common supertype for all rules (ie regardless of result type).
@@ -254,7 +162,7 @@ trait ParsersBase(positions: Positions) {
     /**
      * Apply this rule to the given input, memoising the result.
      */
-    def apply(in: In): ParseResult[T] = {
+    def apply(in: In): Result[T] = {
       recall(in) match {
         case None =>
           val lr = LR[T](Failure("", in), this, null, LRStack)
@@ -297,7 +205,7 @@ trait ParsersBase(positions: Positions) {
     /**
      * Process a given left recursion instance.
      */
-    def lranswer(in: In, m: MemoEntry): ParseResult[T] = {
+    def lranswer(in: In, m: MemoEntry): Result[T] = {
       m.ans match {
         case lr @ LR(_, _, _, _) =>
           val h = lr.head
@@ -340,12 +248,12 @@ trait ParsersBase(positions: Positions) {
     /**
      * Grow the current parse result according to a left recursion.
      */
-    def growlr(in: In, m: MemoEntry, h: Head): ParseResult[T] = {
+    def growlr(in: In, m: MemoEntry, h: Head): Result[T] = {
       heads += (in -> h)
       while (true) {
         h.evalSet = h.involvedSet.toSet
         val ans = body(in)
-        if (ans.isInstanceOf[Failure] || ans.next.offset <= m.in.offset) {
+        if (ans.isInstanceOf[Failure[In]] || ans.next.offset <= m.in.offset) {
           heads -= in
           m.ans match {
             case Resolution(r) =>
@@ -383,14 +291,14 @@ trait ParsersBase(positions: Positions) {
    * memoise its results so it may repeat work. If those properties are
    * desired use the `PackratParser` type instead.
    */
-  abstract class Parser[+T] extends (In => ParseResult[T]) {
+  abstract class Parser[+T] extends (In => Result[T]) {
 
     p =>
 /*
     /**
      * Alternative entry point to directly parse a string.
      */
-    def apply(str: String): ParseResult[T] =
+    def apply(str: String): Result[T] =
       apply(Input(StringSource(str), 0))
 */
     // Functional operators
@@ -501,13 +409,13 @@ trait ParsersBase(positions: Positions) {
   /**
    * Run a parser on a string to obtain its result.
    */
-  def parse[T](p: Parser[T], input: In): ParseResult[T] =
+  def parse[T](p: Parser[T], input: In): Result[T] =
     p(input)
 
   /**
    * Run a parser on all of a string to obtain its result.
    */
-  def parseAll[T](p: Parser[T], input: In): ParseResult[T] =
+  def parseAll[T](p: Parser[T], input: In): Result[T] =
     parse(phrase(p), input)
   
   
@@ -591,11 +499,11 @@ trait ParsersBase(positions: Positions) {
       in =>
         val buf = ops.newBuilder[T]
 
-        def rest(last: T, in: In): ParseResult[CC[T]] = {
+        def rest(last: T, in: In): Result[CC[T]] = {
           val ppp = pp
 
           @tailrec
-          def loop(last: T, in: In): ParseResult[CC[T]] =
+          def loop(last: T, in: In): Result[CC[T]] =
             ppp(in) match {
               case Success(t, next) =>
                 buf += t
@@ -611,7 +519,7 @@ trait ParsersBase(positions: Positions) {
           case Success(t, next) =>
             buf += t
             rest(t, next)
-          case result: NoSuccess =>
+          case result: NoSuccess[In] =>
             result
         }
     }
@@ -672,7 +580,7 @@ trait ParsersBase(positions: Positions) {
     Parser {
       in =>
         p(in) match {
-          case _: Success[_] =>
+          case _: Success[In, _] =>
             Failure("failure of not", in)
           case _ =>
             Success((), in)
@@ -730,7 +638,7 @@ trait ParsersBase(positions: Positions) {
               Failure("end of input expected", next)
             }
           }
-          case _: NoSuccess =>
+          case _: NoSuccess[In] =>
             Failure("end of input expected", in.rest)
         }
       /*
@@ -781,7 +689,7 @@ trait ParsersBase(positions: Positions) {
    * unless they occur at the end of the input. In other words, an
    * error not at the end is treated as the absence of whitespace.
    */
-  def parseWhitespace(in: In): ParseResult[Any] =
+  def parseWhitespace(in: In): Result[Any] =
     if (parsingWhitespace) {
       Success("", in)
     } else {
@@ -924,7 +832,7 @@ trait ParsersBase(positions: Positions) {
               case Right(msg) =>
                 Failure(msg, in)
             }
-          case result: NoSuccess =>
+          case result: NoSuccess[In] =>
             result
         }
     }

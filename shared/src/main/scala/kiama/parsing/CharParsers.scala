@@ -13,13 +13,13 @@ abstract class CharParsers(positions: Positions) extends Parsers(positions) {
   /**
    * Run a parser on a string to obtain its result.
    */
-  def parse[T](p: Parser[T], source: Source): ParseResult[T] =
+  def parse[Out](p: Parser[Out], source: Source): Result[Out] =
     p(SourceInput(source, 0))
 
   /**
    * Run a parser on all of a string to obtain its result.
    */
-  def parseAll[T](p: Parser[T], source: Source): ParseResult[T] =
+  def parseAll[Out](p: Parser[Out], source: Source): Result[Out] =
     parse(phrase(p), source)
   
   

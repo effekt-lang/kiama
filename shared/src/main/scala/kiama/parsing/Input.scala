@@ -50,6 +50,10 @@ trait Input[+Token] {
       "end of source"
     else
       s"'${first.get}'"
+      
+  def position: Position
+  
+  def nextPosition: Position
 }
 
 case class SourceInput(override val source: Source, offset: Int) extends Input[Char] {
@@ -80,14 +84,20 @@ case class SourceInput(override val source: Source, offset: Int) extends Input[C
     s"${found} (${position.line},${position.column})"
 }
 
-case class TokenInput[Token](tokens: Seq[Token], offset: Int) extends Input[Token] {
+case class TokenInput[Token](tokens: Seq[Token], offset: Int, src: Source, toPos: Token => Position) extends Input[Token] {
 
-  val atEnd: Boolean =
-    tokens.length <= offset
+  def atEnd: Boolean =
+    offset >= tokens.length
 
   def first: Option[Token] =
     if (atEnd) None else Some(tokens(offset))
 
-  def rest: Input[Token] =
-    if (atEnd) this else TokenInput(tokens, offset + 1)
+  def rest: TokenInput[Token] =
+    if (atEnd) this else this.copy(offset = offset + 1)
+
+  val position: Position =
+    first.map { toPos }.getOrElse(Position(0, 0, src))
+
+  val nextPosition: Position =
+    rest.position
 }
