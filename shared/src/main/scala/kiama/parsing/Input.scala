@@ -84,19 +84,19 @@ case class SourceInput(override val source: Source, offset: Int) extends Input[C
     s"${found} (${position.line},${position.column})"
 }
 
-case class TokenInput[Token, TokenKind](tokens: Seq[TokenKind], positions: Seq[(Int, Int)], offset: Int, src: Source) extends Input[TokenKind] {
+case class TokenInput[Token](tokens: Seq[Token], offset: Int, override val source: Source, toPosition: Token => Int) extends Input[Token] {
 
   def atEnd: Boolean =
     offset >= tokens.length
 
-  def first: Option[TokenKind] =
+  def first: Option[Token] =
     if (atEnd) None else Some(tokens(offset))
 
-  def rest: TokenInput[Token, TokenKind] =
+  def rest: TokenInput[Token] =
     if (atEnd) this else this.copy(offset = offset + 1)
 
   val position: Position =
-    src.offsetToPosition(positions(offset)._1)
+    source.offsetToPosition(first.map { toPosition }.getOrElse(0))
 
   val nextPosition: Position =
     rest.position

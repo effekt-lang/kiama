@@ -8,7 +8,7 @@ import scala.util.matching.Regex
 import scala.util.matching.Regex.Match
 
 abstract class CharParsers(positions: Positions) extends Parsers(positions) {
-  type Token = Char
+  type Elem = Char
   
   /**
    * Run a parser on a string to obtain its result.
@@ -36,9 +36,6 @@ abstract class CharParsers(positions: Positions) extends Parsers(positions) {
           Failure(s"'$s' expected but ${in.found} found'", in)
         }
     }
-}
-
-abstract class RegexParsers(positions: Positions) extends CharParsers(positions) {
 
   /**
    * A parser that matches a regex string after skipping any whitespace.

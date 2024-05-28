@@ -52,8 +52,8 @@ trait ParsersBase(positions: Positions) {
   import scala.util.matching.Regex
   import scala.util.matching.Regex.Match
 
-  type Token
-  type In = Input[Token]
+  type Elem
+  type In = Input[Elem]
   type Result[+Out] = ParseResult[In, Out]
 
   /**
@@ -294,13 +294,7 @@ trait ParsersBase(positions: Positions) {
   abstract class Parser[+T] extends (In => Result[T]) {
 
     p =>
-/*
-    /**
-     * Alternative entry point to directly parse a string.
-     */
-    def apply(str: String): Result[T] =
-      apply(Input(StringSource(str), 0))
-*/
+      
     // Functional operators
 
     def append[U >: T](q: => Parser[U]): Parser[U] =
@@ -415,7 +409,7 @@ trait ParsersBase(positions: Positions) {
   /**
    * Run a parser on all of a string to obtain its result.
    */
-  def parseAll[T](p: Parser[T], input: In): Result[T] =
+  def parseAll[T](p: Parser[T], input: In): ParseResult[In, T] =
     parse(phrase(p), input)
   
   
@@ -425,7 +419,7 @@ trait ParsersBase(positions: Positions) {
    * A parser that matches any character, failing if the end of input
    * is reached.
    */
-  def any: Parser[Token] =
+  def any: Parser[Elem] =
     Parser {
       in =>
         if (in.atEnd)
@@ -437,14 +431,14 @@ trait ParsersBase(positions: Positions) {
   /**
    * A parser that accepts just the given character.
    */
-  def elem(ch: Token): Parser[Token] =
+  def elem(ch: Elem): Parser[Elem] =
     elem(ch.toString, _ == ch)
 
   /**
    * A parser that accepts just those characters that pass the given predicate.
    * The message is used to describe what was expected if an error occurs.
    */
-  def elem(message: String, p: Token => Boolean): Parser[Token] =
+  def elem(message: String, p: Elem => Boolean): Parser[Elem] =
     Parser {
       in =>
         in.first match {
@@ -675,7 +669,7 @@ trait ParsersBase(positions: Positions) {
    * whitespace characters). This definition can be overridden as long
    * as the new definition succeeds at the end of the input.
    */
-  def whitespace: Parser[Any]
+  def whitespace: Parser[Any] = failure("not skipping whitespaces by default")
 
   /**
    * Are we currently parsing whitespace?

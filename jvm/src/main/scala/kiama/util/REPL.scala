@@ -16,7 +16,7 @@ import kiama.parsing.Input
 /**
  * General support for applications that implement read-eval-print loops (REPLs).
  */
-trait REPL[In <: Input[_], Out, C <: REPLConfig, M <: Message] {
+trait REPL[Token, Out, C <: REPLConfig, M <: Message] {
 
   import scala.annotation.tailrec
   import kiama.parsing.{ NoSuccess, ParseResult, Success }
@@ -30,7 +30,7 @@ trait REPL[In <: Input[_], Out, C <: REPLConfig, M <: Message] {
   /**
    * Parse a source, returning a parse result.
    */
-  def parse(source: Source): ParseResult[In, Out]
+  def parse(source: Source): ParseResult[Input[Token], Out]
 
   /**
    * The position store used by this REPL.
