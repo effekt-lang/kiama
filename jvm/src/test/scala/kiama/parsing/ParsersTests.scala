@@ -32,7 +32,7 @@ class SimpleParsers(positions: Positions) extends Parsers(positions) {
     | num
     )
 
-  lazy val num: P[Exp] = accept("Number literal") { case Token.Integer(n) => Exp.Lit(n) }
+  lazy val num: P[Exp] = elem("Number literal") { case Token.Integer(n) => Exp.Lit(n) }
 
   implicit def tok2Parser(t: Token): Parser[Token] = elem(t)
 

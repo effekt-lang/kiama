@@ -78,8 +78,8 @@ trait ParsersBase(positions: Positions) {
           case Success(_, start) =>
             f(start) match {
               case res @ Success(t, finish) =>
-                //positions.setStart(t, start.position)
-                //positions.setFinish(t, finish.position)
+                positions.setStart(t, start.position)
+                positions.setFinish(t, finish.position)
                 res
               // Can't merge these into a NoSuccess case since type is Result[T]
               case res @ Error(message, next) =>
@@ -453,7 +453,7 @@ trait ParsersBase(positions: Positions) {
         }
     }
 
-  def accept[T](expected: String)(f: PartialFunction[Elem, T]): P[T] = Parser { in =>
+  def elem[T](expected: String)(f: PartialFunction[Elem, T]): P[T] = Parser { in =>
     if (in.atEnd) Failure(s"End of input reached, expected $expected", in)
     else in.first match {
       case Some(elem) if f.isDefinedAt(elem) => Success(f(elem), in.rest)
