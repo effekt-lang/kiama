@@ -56,6 +56,8 @@ trait ParsersBase(positions: Positions) {
   type In = Input[Elem]
   type Result[+Out] = ParseResult[In, Out]
 
+  type P[T] = PackratParser[T]
+
   /**
    * Record lack of success so that we can nicely handle the case where a phrase
    * doesn't parse when looking for the end of input but there was a later lack
@@ -294,7 +296,7 @@ trait ParsersBase(positions: Positions) {
   abstract class Parser[+T] extends (In => Result[T]) {
 
     p =>
-      
+
     // Functional operators
 
     def append[U >: T](q: => Parser[U]): Parser[U] =
@@ -397,7 +399,7 @@ trait ParsersBase(positions: Positions) {
       flatMap(fq)
 
   }
-  
+
   // Running parsers
 
   /**
@@ -411,8 +413,8 @@ trait ParsersBase(positions: Positions) {
    */
   def parseAll[T](p: Parser[T], input: In): ParseResult[In, T] =
     parse(phrase(p), input)
-  
-  
+
+
   // Constructors
 
   /**
@@ -450,6 +452,14 @@ trait ParsersBase(positions: Positions) {
             Failure(message, in)
         }
     }
+
+  def accept[T](expected: String)(f: PartialFunction[Elem, T]): P[T] = Parser { in =>
+    if (in.atEnd) Failure(s"End of input reached, expected $expected", in)
+    else in.first match {
+      case Some(elem) if f.isDefinedAt(elem) => Success(f(elem), in.rest)
+      case _ => Failure(s"Unexpected token ${in.first}, expected $expected", in)
+    }
+  }
 
   /**
    * A parser that always errors with the given message.

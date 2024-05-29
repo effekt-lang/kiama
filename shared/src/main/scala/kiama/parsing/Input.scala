@@ -19,9 +19,8 @@ import kiama.util.{Position, Source}
 trait Input[+Token] {
 
   import kiama.util.Position
-  
-  def source: Source =
-    throw new NoSuchMethodException("not a char based parser")
+
+  def source: Source
 
   def offset: Int
 
@@ -50,13 +49,13 @@ trait Input[+Token] {
       "end of source"
     else
       s"'${first.get}'"
-      
+
   def position: Position
-  
+
   def nextPosition: Position
 }
 
-case class SourceInput(override val source: Source, offset: Int) extends Input[Char] {
+case class SourceInput(source: Source, offset: Int) extends Input[Char] {
 
   def atEnd: Boolean =
     source.content.length <= offset
@@ -84,7 +83,7 @@ case class SourceInput(override val source: Source, offset: Int) extends Input[C
     s"${found} (${position.line},${position.column})"
 }
 
-case class TokenInput[Token](tokens: Seq[Token], offset: Int, override val source: Source, toPosition: Token => Int) extends Input[Token] {
+case class TokenInput[Token](tokens: Seq[Token], offset: Int, source: Source, toPosition: Token => Int) extends Input[Token] {
 
   def atEnd: Boolean =
     offset >= tokens.length

@@ -32,5 +32,9 @@ lazy val kiama: CrossProject = crossProject(JSPlatform, JVMPlatform).in(file("."
     name := "kiama"
   )
   .jvmSettings(
-    libraryDependencies ++= (replDependencies ++ lspDependencies)
+    libraryDependencies ++= (replDependencies ++ lspDependencies ++ testingDependencies)
   )
+
+lazy val testingDependencies = Seq(
+  "org.scalameta" %% "munit" % "0.7.29" % Test
+)
