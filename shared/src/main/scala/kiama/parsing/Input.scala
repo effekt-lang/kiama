@@ -49,7 +49,7 @@ trait Input[+Token] {
       "end of source"
     else
       s"'${first.get}'"
-  
+
   /**
    * Return a formatted description of this input.
    */

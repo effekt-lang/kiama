@@ -642,8 +642,8 @@ trait ParsersBase(positions: Positions) {
               Failure("end of input expected", next)
             }
           }
-          case _: NoSuccess[In] =>
-            Failure("end of input expected", in.rest)
+          case e: NoSuccess[In] =>
+            Failure(s"end of input expected, but failed: ${e.message}", in.rest)
         }
       /*
       latestNoSuccess.withValue(None) {
@@ -679,7 +679,7 @@ trait ParsersBase(positions: Positions) {
    * whitespace characters). This definition can be overridden as long
    * as the new definition succeeds at the end of the input.
    */
-  def whitespace: Parser[Any] = failure("not skipping whitespaces by default")
+  def whitespace: Parser[Any]
 
   /**
    * Are we currently parsing whitespace?
