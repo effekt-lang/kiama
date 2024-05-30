@@ -100,7 +100,7 @@ case class StringSource(content: String, name: String = "") extends Source
  */
 case class FileSource(name: String, encoding: String = "UTF-8") extends Source {
 
-  val shortName = Filenames.dropCurrentPath(name)
+  val shortName: String = Filenames.dropCurrentPath(name)
 
-  lazy val content = scala.io.Source.fromFile(name, encoding).mkString
+  lazy val content: String = scala.io.Source.fromFile(name, encoding).mkString
 }

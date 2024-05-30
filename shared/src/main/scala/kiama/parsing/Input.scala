@@ -49,7 +49,13 @@ trait Input[+Token] {
       "end of source"
     else
       s"'${first.get}'"
-
+  
+  /**
+   * Return a formatted description of this input.
+   */
+  def format: String =
+    s"${found} (${position.line},${position.column})"
+      
   def position: Position
 
   def nextPosition: Position
@@ -75,12 +81,6 @@ case class SourceInput(source: Source, offset: Int) extends Input[Char] {
    * Return the next position of the input.
    */
   val nextPosition: Position = source.offsetToPosition(offset + 1)
-
-  /**
-   * Return a formatted description of this input.
-   */
-  def format: String =
-    s"${found} (${position.line},${position.column})"
 }
 
 case class TokenInput[Token](tokens: Seq[Token], offset: Int, source: Source, toPosition: Token => Int) extends Input[Token] {
