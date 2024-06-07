@@ -22,6 +22,8 @@ trait Input[+Token] {
 
   def source: Source
 
+  def get(index: Int): Option[Token]
+
   def offset: Int
 
   /**
@@ -63,6 +65,12 @@ trait Input[+Token] {
 
 case class SourceInput(source: Source, offset: Int) extends Input[Char] {
 
+  def get(index: Int): Option[Char] =
+    if (index < 0 || source.content.length <= index)
+      None
+    else
+      Some(source.content.charAt(index))
+
   def atEnd: Boolean =
     source.content.length <= offset
 
@@ -84,6 +92,12 @@ case class SourceInput(source: Source, offset: Int) extends Input[Char] {
 }
 
 case class TokenInput[Token](tokens: Seq[Token], offset: Int, source: Source, toPosition: Token => Int) extends Input[Token] {
+
+  def get(index: Int): Option[Token] =
+    if (index < 0 || tokens.length <= index)
+      None
+    else
+      Some(tokens(index))
 
   def atEnd: Boolean =
     offset >= tokens.length

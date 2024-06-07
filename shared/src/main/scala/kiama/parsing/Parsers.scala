@@ -635,31 +635,18 @@ trait ParsersBase(positions: Positions) {
   def phrase[T](p: => Parser[T]): Parser[T] =
     Parser {
       in =>
-        p(in) match {
-          case res@Success(result, next) => {
-            if (next.atEnd) res
-            else {
-              Failure("end of input expected", next)
+        latestNoSuccess.withValue(None) {
+          p(in) match {
+            case res@Success(result, next) => {
+              if (next.atEnd) res
+              else {
+                Failure("end of input expected", next)
+              }
             }
+            case e: NoSuccess[In] =>
+              latestNoSuccess.value.getOrElse(e)
           }
-          case e: NoSuccess[In] =>
-            Failure(s"end of input expected, but failed: ${e.message}", in.rest)
         }
-      /*
-      latestNoSuccess.withValue(None) {
-        (p <~ "")(in) match {
-          case s @ Success(t, next) =>
-            if (next.atEnd)
-              s
-            else
-              latestNoSuccess.value.filterNot {
-                _.next.offset < next.offset
-              }.getOrElse(Failure("end of input expected", next))
-          case result: NoSuccess =>
-            latestNoSuccess.value.getOrElse(result)
-        }
-      }
-      */
     }
 
   /**
