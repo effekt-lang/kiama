@@ -57,7 +57,7 @@ trait Input[+Token] {
    */
   def format: String =
     s"${found} (${position.line},${position.column})"
-      
+
   def position: Position
 
   def nextPosition: Position
@@ -108,9 +108,9 @@ case class TokenInput[Token](tokens: Seq[Token], offset: Int, source: Source, to
   def rest: TokenInput[Token] =
     if (atEnd) this else this.copy(offset = offset + 1)
 
-  val position: Position =
+  def position: Position =
     source.offsetToPosition(first.map { toPosition }.getOrElse(0))
 
-  val nextPosition: Position =
+  def nextPosition: Position =
     rest.position
 }
