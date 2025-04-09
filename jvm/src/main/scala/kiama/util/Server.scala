@@ -551,7 +551,7 @@ trait LanguageService[N, C] {
    * Process a cell in the given notebook. Default is to do nothing,
    * meaning cells won't be processed until a compiler overrides this.
    */
-  def processCell(cell: NotebookCell, notebook: Notebook, config: C): Unit = ()
+  def processCell(cell: NotebookCell, notebook: Notebook, config: C): Option[Any] = None
 }
 
 class Services[N, C <: Config, M <: Message](
