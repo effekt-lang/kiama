@@ -21,7 +21,7 @@ import scala.jdk.CollectionConverters._
  * A language server that is mixed with a compiler that provide the basis
  * for its services. Allows specialisation of configuration via `C`.
  */
-trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageService[N] {
+trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageService[N, C] {
 
   import com.google.gson.{ JsonArray, JsonElement, JsonObject }
   import java.util.Collections
@@ -215,7 +215,7 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
       val after = cells.drop(start + deleteCount)
 
       // create if not already exist (this can be the case if cells are re-ordered=delete+insert)
-      insertedUris.foreach { uri => sources.getOrElseUpdate(uri, RopeSource(Rope.empty, uri)) }
+      insertedUris.foreach { uri => sources.getOrElseUpdate(uri, BufferSource(GapBuffer.empty, uri)) }
       val inserted = insertedUris.map(NotebookCell.apply)
 
       val updated = (before ++ inserted ++ after).map(c => c.uri -> c).toMap
@@ -229,7 +229,8 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
   def onNotebookContentChange(
     notebookUri: String,
     cellUri: String,
-    changes: Seq[TextDocumentContentChangeEvent]
+    changes: Seq[TextDocumentContentChangeEvent],
+    config: C
   ): Unit = {
     val bs = sources.get(cellUri) match {
       case Some(buffer: BufferSource) => buffer
@@ -261,7 +262,7 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
     // Update and process notebook accordingly
     notebooks.get(notebookUri).foreach { notebook =>
       notebook.cells.get(cellUri).foreach { cell =>
-        processCell(cell, notebook)
+        processCell(cell, notebook, config)
       }
     }
   }
@@ -269,10 +270,10 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
   /**
    * Called when a notebook is saved.
    **/
-  def onNotebookSave(notebookUri: String): Unit = {
+  def onNotebookSave(notebookUri: String, config: C): Unit = {
     notebooks.get(notebookUri).foreach { notebook =>
       notebook.cells.values.foreach { cell =>
-        processCell(cell, notebook)
+        processCell(cell, notebook, config)
         // comment this in to see state of the notebook on save (in server debug mode)
         // println(sources.get(cell.uri))
       }
@@ -317,9 +318,19 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
     }
   }
 
+  def toURI(filename: String): String = filename match {
+    case _ if filename startsWith "file:" =>
+      filename
+    case _ if filename startsWith "vscode-notebook-cell:" =>
+      filename
+    case _ if filename startsWith "./" =>
+      s"file://${Filenames.cwd()}/${Filenames.dropPrefix(filename, ".")}"
+    case _ =>
+      s"file://$filename"
+  }
+
   def publishDiagnostics(name: String, diagnostics: Vector[Diagnostic]): Unit = {
-    val uri = if (name startsWith "file://") name else s"file://$name"
-    val params = new PublishDiagnosticsParams(uri, seqToJavaList(diagnostics))
+    val params = new PublishDiagnosticsParams(toURI(name), seqToJavaList(diagnostics))
     client.publishDiagnostics(params)
   }
 
@@ -459,18 +470,12 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
     }
 
   // Support for services
-
   def locationOfNode(node: N): Location = {
     (positions.getStart(node), positions.getFinish(node)) match {
       case (start @ Some(st), finish @ Some(_)) =>
-        st.source match {
-          case StringSource(_, name) =>
-            val s = convertPosition(start)
-            val f = convertPosition(finish)
-            new Location(name, new LSPRange(s, f))
-          case _ =>
-            null
-        }
+        val s = convertPosition(start)
+        val f = convertPosition(finish)
+        new Location(toURI(st.source.name), new LSPRange(s, f))
       case _ =>
         null
     }
@@ -478,10 +483,9 @@ trait Server[N, C <: Config, M <: Message] extends Compiler[C, M] with LanguageS
 
   def rangeOfNode(node: N): LSPRange =
     convertRange(positions.getStart(node), positions.getFinish(node))
-
 }
 
-trait LanguageService[N] {
+trait LanguageService[N, C] {
 
   /**
    * A representation of a simple named code action that replaces
@@ -547,7 +551,7 @@ trait LanguageService[N] {
    * Process a cell in the given notebook. Default is to do nothing,
    * meaning cells won't be processed until a compiler overrides this.
    */
-  def processCell(cell: NotebookCell, notebook: Notebook): Unit = ()
+  def processCell(cell: NotebookCell, notebook: Notebook, config: C): Option[Any] = None
 }
 
 class Services[N, C <: Config, M <: Message](
@@ -702,7 +706,8 @@ class Services[N, C <: Config, M <: Message](
         server.onNotebookContentChange(
           notebookUri,
           change.getDocument.getUri,
-          change.getChanges.asScala.toSeq
+          change.getChanges.asScala.toSeq,
+          config
         )
       }
     }
@@ -716,7 +721,7 @@ class Services[N, C <: Config, M <: Message](
 
   @JsonNotification("notebookDocument/didSave")
   def notebookDidSave(params: DidSaveNotebookDocumentParams): Unit = {
-    server.onNotebookSave(params.getNotebookDocument.getUri)
+    server.onNotebookSave(params.getNotebookDocument.getUri, config)
   }
 
   @JsonNotification("notebookDocument/didClose")
