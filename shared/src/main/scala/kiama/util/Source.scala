@@ -124,13 +124,11 @@ case class FileSource(name: String, encoding: String = "UTF-8") extends Source {
 
   override def equals(other: Any): Boolean = other match {
     case that: FileSource =>
-      this.canonicalFile == that.canonicalFile &&
-      this.encoding      == that.encoding
+      this.canonicalFile == that.canonicalFile
     case _ =>
       false
   }
 
   override def hashCode(): Int =
-    // combine canonical path and encoding
-    (canonicalFile, encoding).hashCode
+    canonicalFile.hashCode
 }
