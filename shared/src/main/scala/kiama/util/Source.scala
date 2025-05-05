@@ -11,6 +11,8 @@
 package kiama
 package util
 
+import java.io.File
+
 /**
  * A simple source of characters.
  */
@@ -106,8 +108,27 @@ case class BufferSource(contents: GapBuffer, name: String = "") extends Source {
  * A source that is a named file.
  */
 case class FileSource(name: String, encoding: String = "UTF-8") extends Source {
-
   val shortName = Filenames.dropCurrentPath(name)
-
   lazy val content = scala.io.Source.fromFile(name, encoding).mkString
+
+  // Custom equals and hashCode to compare FileSource instances
+  //
+  // This is necessary to ensure that the same FileSource is recognized even if it is referenced with different
+  // filenames (such as "foo.effekt", "./foo.effekt", or "/abs/path/to/foo.effekt")
+
+  // The canonical (absolute, symlink-resolved) file
+  private lazy val canonicalFile: File =
+    new File(name).getCanonicalFile
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[FileSource]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: FileSource =>
+      this.canonicalFile == that.canonicalFile
+    case _ =>
+      false
+  }
+
+  override def hashCode(): Int =
+    canonicalFile.hashCode
 }
