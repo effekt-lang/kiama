@@ -132,5 +132,5 @@ case class FileSource(name: String, encoding: String = "UTF-8") extends Source {
 
   override def hashCode(): Int =
     // combine canonical path and encoding
-    (canonicalFile, encoding).##
+    (canonicalFile, encoding).hashCode
 }
