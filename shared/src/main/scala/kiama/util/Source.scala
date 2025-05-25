@@ -12,6 +12,7 @@ package kiama
 package util
 
 import java.io.File
+import scala.collection.Searching
 
 /**
  * A simple source of characters.
@@ -66,13 +67,18 @@ trait Source {
   /**
    * Convert an offset into the content into a position.
    */
-  def offsetToPosition(offset: Int): Position =
-    lineStarts.lastIndexWhere(offset >= _) match {
+  def offsetToPosition(offset: Int): Position = {
+    def lineOf(offset: Int): Int = lineStarts.search(offset) match {
+      case Searching.Found(line) => line
+      case Searching.InsertionPoint(n) => n - 1
+    }
+    lineOf(offset) match {
       case -1 =>
         Position(0, 0, this)
       case line =>
         Position(line + 1, offset - lineStarts(line) + 1, this)
     }
+  }
 
   /**
    * If the position is valid for this source, return the corresponding
