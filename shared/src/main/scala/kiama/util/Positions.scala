@@ -250,8 +250,8 @@ class Positions {
   def findNodesInRange[T](nodes: Vector[T], range: Range): Vector[T] =
     nodes.collect { t =>
       (getStart(t), getFinish(t)) match {
-        case (Some(start), Some(finish)) if start.between(range.from, range.to) && finish.between(range.from, range.to) =>
-          t
+        case (Some(start), Some(finish)) if start.between(range.from, range.to) && (range.from <= finish) && (finish <= range.to)
+          => t
       }
     }
 
