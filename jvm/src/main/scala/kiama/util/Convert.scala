@@ -11,7 +11,6 @@
 package kiama.util
 
 import kiama.util.Severities.{Error, Hint, Information, Severity, Warning}
-import kiama.util.{Messaging, Position, Positions, Source}
 import org.eclipse.lsp4j.{Diagnostic, DiagnosticSeverity, Location, Position as LSPPosition, Range as LSPRange}
 
 import java.nio.file.Paths
@@ -63,18 +62,6 @@ object Convert {
       case Information => DiagnosticSeverity.Information
       case Hint        => DiagnosticSeverity.Hint
     }
-
-  // Support for services
-  def locationOfNode[N](positions: Positions, node: N): Location = {
-    (positions.getStart(node), positions.getFinish(node)) match {
-      case (start@Some(st), finish@Some(_)) =>
-        val s = convertPosition(start)
-        val f = convertPosition(finish)
-        new Location(toURI(st.source.name), new LSPRange(s, f))
-      case _ =>
-        null
-    }
-  }
 
   // Convert a filename to a URI
   def toURI(filename: String): String = {

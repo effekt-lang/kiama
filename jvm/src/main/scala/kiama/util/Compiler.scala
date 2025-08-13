@@ -34,11 +34,6 @@ trait Compiler[C <: Config, M <: Message] {
   val sources = mutable.Map[String, Source]()
 
   /**
-   * The position store used by this compiler.
-   */
-  val positions = new Positions
-
-  /**
    * The messaging facilitiy used by this compiler.
    */
   val messaging: Messaging[M]

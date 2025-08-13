@@ -31,11 +31,6 @@ trait REPL[T, C <: REPLConfig, M <: Message] {
   def parse(source: Source): ParseResult[T]
 
   /**
-   * The position store used by this REPL.
-   */
-  val positions = new Positions
-
-  /**
    * The messaging facilitiy used by this REPL.
    */
   val messaging: Messaging[M]

@@ -11,8 +11,6 @@
 package kiama
 package parsing
 
-import kiama.util.Positions
-
 /**
  * Simple packrat parsing combinator suite. These combinators are
  * largely source compatible with the Scala parser combinator library
@@ -41,7 +39,7 @@ import kiama.util.Positions
  * ACM SIGPLAN Symposium on Partial Evaluation and Semantics-based Program
  * Manipulation, 2008.
  */
-class ParsersBase(positions: Positions) {
+class ParsersBase {
 
   import kiama.util.{ Source, StringSource }
   import scala.annotation.tailrec
@@ -71,10 +69,7 @@ class ParsersBase(positions: Positions) {
         parseWhitespace(in) match {
           case Success(_, start) =>
             f(start) match {
-              case res @ Success(t, finish) =>
-                positions.setStart(t, start.position)
-                positions.setFinish(t, finish.position)
-                res
+              case res @ Success(t, finish) => res
               // Can't merge these into a NoSuccess case since type is ParseResult[T]
               case res @ Error(message, next) =>
                 updateLatestNoSuccess(res)
@@ -985,11 +980,11 @@ trait ListRepetitionParsers {
 /**
  * Parser combinators that use vectors to represent repetitive constructs.
  */
-class Parsers(positions: Positions) extends ParsersBase(positions)
+class Parsers extends ParsersBase
   with VectorRepetitionParsers
 
 /**
  * Parser combinators that use lists to represent repetitive constructs.
  */
-class ListParsers(positions: Positions) extends ParsersBase(positions)
+class ListParsers extends ParsersBase
   with ListRepetitionParsers
