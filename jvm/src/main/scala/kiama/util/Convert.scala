@@ -44,7 +44,7 @@ object Convert {
     new LSPRange(convertPosition(r.from), convertPosition(r.to))
 
   def rangeToLocation(r: kiama.util.Range): Location =
-    new Location(r.from.source.name, convertRange(r))
+    new Location(toURI(r.from.source.name), convertRange(r))
 
   def fromLSPPosition(position: LSPPosition, source: Source): Position =
     Position(position.getLine + 1, position.getCharacter + 1, source)
