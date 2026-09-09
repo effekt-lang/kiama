@@ -24,7 +24,7 @@ lazy val kiama: CrossProject = crossProject(JSPlatform, JVMPlatform).in(file("."
       "-encoding", "utf8",
       "-deprecation",
       "-unchecked",
-      "-Xfatal-warnings",
+      "-Werror",
       "-feature",
       "-language:existentials",
       "-language:higherKinds",
