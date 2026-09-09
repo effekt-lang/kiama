@@ -23,8 +23,8 @@ import scala.util.boundary.*
  * it is applied to a node that is not in this tree. `T` is the type of the
  * tree nodes.
  */
-class TreeRelation[T <: AnyRef with Product](
-  tree: Tree[T, _ <: T],
+class TreeRelation[T <: AnyRef & Product](
+  tree: Tree[T, ? <: T],
   override val graph: Memoiser[T, Vector[T]] = makeIdMemoiser[T, Vector[T]](),
   override val inverseGraph: Memoiser[T, Vector[T]] = makeIdMemoiser[T, Vector[T]]()
 ) extends Relation[T, T](graph, inverseGraph) {
@@ -151,7 +151,7 @@ object TreeRelation {
    * Make a child tree relation for the given tree. Populate the relation
    * using `treeChildren` to traverse the structure from the tree's root.
    */
-  def childFromTree[T <: AnyRef with Product, R <: T](tree: Tree[T, R]): TreeRelation[T] = {
+  def childFromTree[T <: AnyRef & Product, R <: T](tree: Tree[T, R]): TreeRelation[T] = {
 
     val relation = new TreeRelation(tree)
 

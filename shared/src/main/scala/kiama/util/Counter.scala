@@ -26,7 +26,7 @@ class Counter(init: Int = -1) {
    * The most recent value that was generated, or -1 if no values have
    * been generated.
    */
-  private[this] var _value = init
+  private var _value = init
 
   /**
    * Return the current value of the counter.

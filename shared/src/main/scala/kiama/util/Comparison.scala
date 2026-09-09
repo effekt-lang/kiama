@@ -80,7 +80,7 @@ object Comparison {
    * Compare two `Seq` collections or options and tuples containing that kind of
    * collection. Use `same` to compare the individual elements in any order.
    */
-  def sameElements[T](t1: Seq[_], t2: Seq[_]): Boolean =
+  def sameElements[T](t1: Seq[?], t2: Seq[?]): Boolean =
     (t1.size == t2.size) && (t1.forall(contains(t2, _)))
 
   /**
@@ -112,7 +112,7 @@ object Comparison {
    * "distinct" in this case means compare using `same`.
    */
   def distinct[T](s: Seq[T]): Vector[T] = {
-    val set = new TreeSet[T]()(new TOrdering[T])
+    val set = new TreeSet[T]()(using new TOrdering[T])
     set ++= s
     set.toVector
   }
@@ -121,7 +121,7 @@ object Comparison {
    * As for `distinct` but works over a sequence of sequences.
    */
   def flatDistinct[T](ss: Seq[Seq[T]]): Vector[T] = {
-    val set = new TreeSet[T]()(new TOrdering[T])
+    val set = new TreeSet[T]()(using new TOrdering[T])
     for (s <- ss)
       set ++= s
     set.toVector

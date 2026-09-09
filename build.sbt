@@ -19,7 +19,7 @@ lazy val testingDependencies = Seq(
 
 lazy val kiama: CrossProject = crossProject(JSPlatform, JVMPlatform).in(file("."))
   .settings(Seq(
-    scalaVersion := "3.3.6",
+    scalaVersion := "3.9.0",
     scalacOptions ++= Seq(
       "-encoding", "utf8",
       "-deprecation",
