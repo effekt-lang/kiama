@@ -468,7 +468,7 @@ class ParsersBase {
   /**
    * Interface for operations needed for repetition collections.
    */
-  trait CCOps[CC[_] <: Seq[_]] {
+  trait CCOps[CC[_] <: Seq[?]] {
     def empty[T]: CC[T]
     def newBuilder[T]: Builder[T, CC[T]]
     def prepend[T](t: T, cc: CC[T]): CC[T]
@@ -477,13 +477,13 @@ class ParsersBase {
   /**
    * Generic repetition zero or more times.
    */
-  def grep[T, CC[_] <: Seq[_]](p: => Parser[T])(ops: CCOps[CC]): Parser[CC[T]] =
+  def grep[T, CC[_] <: Seq[?]](p: => Parser[T])(ops: CCOps[CC]): Parser[CC[T]] =
     grep1(p)(ops) | success(ops.empty)
 
   /**
    * Generic repetition one or more times.
    */
-  def grep1[T, CC[_] <: Seq[_]](p: => Parser[T])(ops: CCOps[CC]): Parser[CC[T]] = {
+  def grep1[T, CC[_] <: Seq[?]](p: => Parser[T])(ops: CCOps[CC]): Parser[CC[T]] = {
     lazy val pp = p
     Parser {
       in =>
@@ -519,13 +519,13 @@ class ParsersBase {
   /**
    * Generic repetition zero or more times with separators.
    */
-  def grepsep[T, CC[_] <: Seq[_]](p: => Parser[T], q: => Parser[Any])(ops: CCOps[CC]): Parser[CC[T]] =
+  def grepsep[T, CC[_] <: Seq[?]](p: => Parser[T], q: => Parser[Any])(ops: CCOps[CC]): Parser[CC[T]] =
     grep1sep(p, q)(ops) | success(ops.empty)
 
   /**
    * Generic repetition one or more times with separators.
    */
-  def grep1sep[T, CC[_] <: Seq[_]](p: => Parser[T], q: => Parser[Any])(ops: CCOps[CC]): Parser[CC[T]] = {
+  def grep1sep[T, CC[_] <: Seq[?]](p: => Parser[T], q: => Parser[Any])(ops: CCOps[CC]): Parser[CC[T]] = {
     lazy val pp = p
     pp ~ grep(q ~> pp)(ops) ^^ {
       case t ~ ts =>

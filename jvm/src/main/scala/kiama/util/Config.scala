@@ -60,7 +60,7 @@ class Config(args: Seq[String]) extends ScallopConf(args) {
     default = Some(new OutputEmitter),
     noshort = true,
     hidden = true
-  )(outputConverter)
+  )(using outputConverter)
 
   /**
    * Convertor for console options.
@@ -95,7 +95,7 @@ class Config(args: Seq[String]) extends ScallopConf(args) {
     default = Some(JLineConsole),
     noshort = true,
     hidden = true
-  )(consoleConverter)
+  )(using consoleConverter)
 
   /**
    * Language server mode for a compiler.
